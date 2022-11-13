@@ -1,15 +1,21 @@
 import UIKit
 
-final class MovieQuizViewController: UIViewController {
+final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, AlertDelegate {
     
     // MARK: - Variables
     
     @IBOutlet private var imageView: UIImageView!
     @IBOutlet private var textLabel: UILabel!
     @IBOutlet private var counterLabel: UILabel!
-
+    
     private var currentQuestionIndex: Int = 0
     private var correctAnswers: Int = 0
+    
+    private let questionsAmount: Int = 10
+    private var questionFactory: QuestionFactoryProtocol?
+    private var currentQuestion: QuizQuestion?
+    private var alertPresenter: AlertPresenter?
+    private var statisticService: StatisticService?
     
     // MARK: - Lifecycle
     
@@ -17,12 +23,64 @@ final class MovieQuizViewController: UIViewController {
         super.viewDidLoad()
         imageView.layer.masksToBounds = true
         imageView.layer.cornerRadius = 20
-        let currentQuestion = questions[currentQuestionIndex]
-        let currentViewModel = convert(model: currentQuestion)
-        show(quiz: currentViewModel)
+        questionFactory = QuestionFactory(delegate: self)
+        questionFactory?.requestNextQuestion()
+        alertPresenter = AlertPresenter(delegate: self)
+        statisticService = StatisticServiceImplementation()
         
+        let tmp = FileManager.default
+        var tmpURL = tmp.temporaryDirectory
+        let filePi = "pi.txt"
+        tmpURL.appendPathComponent(filePi)
+        let pi = "\(Double.pi)"
+        let dataPi = pi.data(using: .utf8)
+        tmp.createFile(atPath: tmpURL.path, contents: dataPi)
+        
+        //        var jsonString = ""
+        //        let jsonStringURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+        //        if let jsonStringReader = jsonStringURL?.appendingPathComponent("inception.json") {
+        //            do {
+        //                jsonString = try String(contentsOf: jsonStringReader, encoding: .utf8)
+        //            } catch {
+        //                print("Reading error")
+        //            }
+        //        }
+        
+        var jsonQuizString = ""
+        let jsonQuizStringURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+        if let jsonQuizStringReader = jsonQuizStringURL?.appendingPathComponent("top250MoviesIMDB.json") {
+            do {
+                jsonQuizString = try String(contentsOf: jsonQuizStringReader, encoding: .utf8)
+            } catch {
+                print("Reading error")
+            }
+        }
+        
+        let data = jsonQuizString.data(using: .utf8)!
+        
+        do {
+            let movieItems = try JSONDecoder().decode(MovieItems.self, from: data)
+        } catch {
+            print("Failed to parse: \(error.localizedDescription)")
+        }
+    }
+    // MARK: - QuestionFactoryDelegate
+    func didRecieveNextQuestion(question: QuizQuestion?) {
+        guard let question = question else {
+            return
+        }
+        
+        currentQuestion = question
+        let viewModel = convert(model: question)
+        DispatchQueue.main.async { [weak self] in
+            self?.show(quiz: viewModel)
+        }
     }
     
+    // MARK: - AlertDelegate
+    func show(alert: UIAlertController) {
+        self.present(alert, animated: true, completion: nil)
+    }
     // MARK: - Functions
     
     @IBAction private func noButtonClicked(_ sender: UIButton) {
@@ -37,7 +95,7 @@ final class MovieQuizViewController: UIViewController {
         return QuizStepViewModel(
             image: UIImage(named: model.image) ?? UIImage(),
             question: model.text,
-            questionNumber: "\(currentQuestionIndex + 1)/\(questions.count)")
+            questionNumber: "\(currentQuestionIndex + 1)/\(questionsAmount)")
         
     }
     
@@ -49,23 +107,10 @@ final class MovieQuizViewController: UIViewController {
         
     }
     
-    private func show(quiz result: QuizResultsViewModel) {
-        // здесь мы показываем результат прохождения квиза
-        let alert = UIAlertController(title: result.title, message: result.text, preferredStyle: .alert)
-        let action = UIAlertAction(title: result.buttonText, style: .default, handler: { _ in
-            self.currentQuestionIndex = 0
-            let firstQuestion = self.questions[self.currentQuestionIndex]
-            let viewModel = self.convert(model: firstQuestion)
-            self.show(quiz: viewModel)
-        })
-        alert.addAction(action)
-        self.present(alert, animated: true, completion: nil)
-        correctAnswers = 0
-        
-    }
-    
     private func showAnswerResult(isCorrect: Bool) {
-        let currentQuestion = questions[currentQuestionIndex]
+        guard let currentQuestion = currentQuestion else {
+            return
+        }
         if currentQuestion.correctAnswer == isCorrect {
             // показать зеленую рамку
             drawBorder(color: .ypGreen)
@@ -75,24 +120,38 @@ final class MovieQuizViewController: UIViewController {
             drawBorder(color: .ypRed)
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            self?.showNextQuestionOrResults()
+            guard let self = self else { return }
+            self.showNextQuestionOrResults()
         }
     }
     
     private func showNextQuestionOrResults() {
         hideBorder()
-        if currentQuestionIndex == questions.count - 1 {// - 1 потому что индекс начинается с 0, а длинна массива — с 1
-            let text = "Ваш результат \(correctAnswers) из 10"
-            let viewModel = QuizResultsViewModel(title: "Этот раунд окончен", text: text, buttonText: "Сыграть еще раз")
-            show(quiz: viewModel)
+        if currentQuestionIndex == questionsAmount - 1 {// - 1 потому что индекс начинается с 0, а длинна массива — с 1
+            statisticService?.store(correct: correctAnswers, total: questionsAmount)
+            let gamesCount = statisticService?.gamesCount ?? 0
+            let bestGameCorrect = statisticService?.bestGame.correct ?? 0
+            let bestGameTotal = statisticService?.bestGame.total ?? 0
+            let bestGameDate = statisticService?.bestGame.date.dateTimeString ?? "0"
+            let totalAccuracy = statisticService?.totalAccuracy ?? 0
+            let text = """
+        Ваш результат \(correctAnswers) из 10
+        Количество сыгранных квизов: \(gamesCount)
+        Рекорд: \(bestGameCorrect) / \(bestGameTotal) (\(bestGameDate))
+        Cредняя точность: \(String(format: "%.2f", totalAccuracy * 100))%
+        """
+            let alertModel = AlertModel(title: "Этот раунд окончен", message: text, buttonText: "Сыграть еще раз") { [weak self] in
+                guard let self = self else { return }
+                self.currentQuestionIndex = 0
+                self.questionFactory?.requestNextQuestion()
+            }
+            alertPresenter?.configure(model: alertModel)
+            correctAnswers = 0
         } else {
             currentQuestionIndex += 1 // увеличиваем индекс текущего урока на 1; таким образом мы сможем получить следующий урок
-            let currentQuestion = questions[currentQuestionIndex]
-            let currentViewModel = convert(model: currentQuestion)
-            show(quiz: currentViewModel)
+            questionFactory?.requestNextQuestion()
         }
     }
-    
     private func hideBorder(){
         imageView.layer.borderWidth = 0
     }
@@ -101,104 +160,4 @@ final class MovieQuizViewController: UIViewController {
         imageView.layer.borderWidth = 8 // толщина рамки
         imageView.layer.borderColor = color.cgColor // делаем рамку белой
     }
-    
-    private let questions: [QuizQuestion] = [ QuizQuestion(image: "The Godfather", text: "Рейтинг этого фильма больше чем 6?", correctAnswer: true),
-                                              QuizQuestion(image: "The Dark Knight", text: "Рейтинг этого фильма больше чем 6?", correctAnswer: true),
-                                              QuizQuestion(image: "Kill Bill", text: "Рейтинг этого фильма больше чем 6?", correctAnswer: true),
-                                              QuizQuestion(image: "The Avengers", text: "Рейтинг этого фильма больше чем 6?", correctAnswer: true),
-                                              QuizQuestion(image: "Deadpool", text: "Рейтинг этого фильма больше чем 6?", correctAnswer: true),
-                                              QuizQuestion(image: "The Green Knight", text: "Рейтинг этого фильма больше чем 6?", correctAnswer: true),
-                                              QuizQuestion(image: "Old", text: "Рейтинг этого фильма больше чем 6?", correctAnswer: false),
-                                              QuizQuestion(image: "The Ice Age Adventures of Buck Wild", text: "Рейтинг этого фильма больше чем 6?", correctAnswer: false),
-                                              QuizQuestion(image: "Tesla", text: "Рейтинг этого фильма больше чем 6?", correctAnswer: false),
-                                              QuizQuestion(image: "Vivarium", text: "Рейтинг этого фильма больше чем 6?", correctAnswer: false)]
-    
 }
-
-// MARK: - ViewModels
-
-extension MovieQuizViewController {
-    // для состояния "Вопрос задан"
-    struct QuizStepViewModel {
-        let image: UIImage
-        let question: String
-        let questionNumber: String
-    }
-    
-    // для состояния "Результат квиза"
-    struct QuizResultsViewModel {
-        let title: String
-        let text: String
-        let buttonText: String
-    }
-    
-    struct QuizQuestion {
-        let image: String
-        let text: String
-        let correctAnswer: Bool
-    }
-}
-
-/*
- Mock-данные
- 
- 
- Картинка: The Godfather
- Настоящий рейтинг: 9,2
- Вопрос: Рейтинг этого фильма больше чем 6?
- Ответ: ДА
- 
- 
- Картинка: The Dark Knight
- Настоящий рейтинг: 9
- Вопрос: Рейтинг этого фильма больше чем 6?
- Ответ: ДА
- 
- 
- Картинка: Kill Bill
- Настоящий рейтинг: 8,1
- Вопрос: Рейтинг этого фильма больше чем 6?
- Ответ: ДА
- 
- 
- Картинка: The Avengers
- Настоящий рейтинг: 8
- Вопрос: Рейтинг этого фильма больше чем 6?
- Ответ: ДА
- 
- 
- Картинка: Deadpool
- Настоящий рейтинг: 8
- Вопрос: Рейтинг этого фильма больше чем 6?
- Ответ: ДА
- 
- 
- Картинка: The Green Knight
- Настоящий рейтинг: 6,6
- Вопрос: Рейтинг этого фильма больше чем 6?
- Ответ: ДА
- 
- 
- Картинка: Old
- Настоящий рейтинг: 5,8
- Вопрос: Рейтинг этого фильма больше чем 6?
- Ответ: НЕТ
- 
- 
- Картинка: The Ice Age Adventures of Buck Wild
- Настоящий рейтинг: 4,3
- Вопрос: Рейтинг этого фильма больше чем 6?
- Ответ: НЕТ
- 
- 
- Картинка: Tesla
- Настоящий рейтинг: 5,1
- Вопрос: Рейтинг этого фильма больше чем 6?
- Ответ: НЕТ
- 
- 
- Картинка: Vivarium
- Настоящий рейтинг: 5,8
- Вопрос: Рейтинг этого фильма больше чем 6?
- Ответ: НЕТ
- */
