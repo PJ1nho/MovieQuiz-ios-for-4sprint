@@ -36,16 +36,6 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
         let dataPi = pi.data(using: .utf8)
         tmp.createFile(atPath: tmpURL.path, contents: dataPi)
         
-        //        var jsonString = ""
-        //        let jsonStringURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
-        //        if let jsonStringReader = jsonStringURL?.appendingPathComponent("inception.json") {
-        //            do {
-        //                jsonString = try String(contentsOf: jsonStringReader, encoding: .utf8)
-        //            } catch {
-        //                print("Reading error")
-        //            }
-        //        }
-        
         var jsonQuizString = ""
         let jsonQuizStringURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
         if let jsonQuizStringReader = jsonQuizStringURL?.appendingPathComponent("top250MoviesIMDB.json") {
@@ -79,7 +69,7 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
     
     // MARK: - AlertDelegate
     func show(alert: UIAlertController) {
-        self.present(alert, animated: true, completion: nil)
+        present(alert, animated: true, completion: nil)
     }
     // MARK: - Functions
     
@@ -132,14 +122,14 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
             let gamesCount = statisticService?.gamesCount ?? 0
             let bestGameCorrect = statisticService?.bestGame.correct ?? 0
             let bestGameTotal = statisticService?.bestGame.total ?? 0
-            let bestGameDate = statisticService?.bestGame.date.dateTimeString ?? "0"
+            let bestGameDate = statisticService?.bestGame.date.dateTimeString ?? ""
             let totalAccuracy = statisticService?.totalAccuracy ?? 0
             let text = """
-        Ваш результат \(correctAnswers) из 10
-        Количество сыгранных квизов: \(gamesCount)
-        Рекорд: \(bestGameCorrect) / \(bestGameTotal) (\(bestGameDate))
-        Cредняя точность: \(String(format: "%.2f", totalAccuracy * 100))%
-        """
+            Ваш результат \(correctAnswers) из 10
+            Количество сыгранных квизов: \(gamesCount)
+            Рекорд: \(bestGameCorrect) / \(bestGameTotal) (\(bestGameDate))
+            Cредняя точность: \(String(format: "%.2f", totalAccuracy * 100))%
+            """
             let alertModel = AlertModel(title: "Этот раунд окончен", message: text, buttonText: "Сыграть еще раз") { [weak self] in
                 guard let self = self else { return }
                 self.currentQuestionIndex = 0
