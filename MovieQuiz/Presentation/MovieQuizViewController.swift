@@ -28,41 +28,6 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
         alertPresenter = AlertPresenter(delegate: self)
         statisticService = StatisticServiceImplementation()
         
-        let tmp = FileManager.default
-        var tmpURL = tmp.temporaryDirectory
-        let filePi = "pi.txt"
-        tmpURL.appendPathComponent(filePi)
-        let pi = "\(Double.pi)"
-        let dataPi = pi.data(using: .utf8)
-        tmp.createFile(atPath: tmpURL.path, contents: dataPi)
-        
-        //        var jsonString = ""
-        //        let jsonStringURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
-        //        if let jsonStringReader = jsonStringURL?.appendingPathComponent("inception.json") {
-        //            do {
-        //                jsonString = try String(contentsOf: jsonStringReader, encoding: .utf8)
-        //            } catch {
-        //                print("Reading error")
-        //            }
-        //        }
-        
-        var jsonQuizString = ""
-        let jsonQuizStringURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
-        if let jsonQuizStringReader = jsonQuizStringURL?.appendingPathComponent("top250MoviesIMDB.json") {
-            do {
-                jsonQuizString = try String(contentsOf: jsonQuizStringReader, encoding: .utf8)
-            } catch {
-                print("Reading error")
-            }
-        }
-        
-        let data = jsonQuizString.data(using: .utf8)!
-        
-        do {
-            let movieItems = try JSONDecoder().decode(MovieItems.self, from: data)
-        } catch {
-            print("Failed to parse: \(error.localizedDescription)")
-        }
     }
     // MARK: - QuestionFactoryDelegate
     func didRecieveNextQuestion(question: QuizQuestion?) {
@@ -79,7 +44,7 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
     
     // MARK: - AlertDelegate
     func show(alert: UIAlertController) {
-        self.present(alert, animated: true, completion: nil)
+        present(alert, animated: true, completion: nil)
     }
     // MARK: - Functions
     
@@ -127,19 +92,19 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
     
     private func showNextQuestionOrResults() {
         hideBorder()
-        if currentQuestionIndex == questionsAmount - 1 {// - 1 потому что индекс начинается с 0, а длинна массива — с 1
+        if currentQuestionIndex == questionsAmount - 1 { // - 1 потому что индекс начинается с 0, а длинна массива — с 1
             statisticService?.store(correct: correctAnswers, total: questionsAmount)
             let gamesCount = statisticService?.gamesCount ?? 0
             let bestGameCorrect = statisticService?.bestGame.correct ?? 0
             let bestGameTotal = statisticService?.bestGame.total ?? 0
-            let bestGameDate = statisticService?.bestGame.date.dateTimeString ?? "0"
+            let bestGameDate = statisticService?.bestGame.date.dateTimeString ?? ""
             let totalAccuracy = statisticService?.totalAccuracy ?? 0
             let text = """
-        Ваш результат \(correctAnswers) из 10
-        Количество сыгранных квизов: \(gamesCount)
-        Рекорд: \(bestGameCorrect) / \(bestGameTotal) (\(bestGameDate))
-        Cредняя точность: \(String(format: "%.2f", totalAccuracy * 100))%
-        """
+            Ваш результат \(correctAnswers) из 10
+            Количество сыгранных квизов: \(gamesCount)
+            Рекорд: \(bestGameCorrect) / \(bestGameTotal) (\(bestGameDate))
+            Cредняя точность: \(String(format: "%.2f", totalAccuracy * 100))%
+            """
             let alertModel = AlertModel(title: "Этот раунд окончен", message: text, buttonText: "Сыграть еще раз") { [weak self] in
                 guard let self = self else { return }
                 self.currentQuestionIndex = 0
