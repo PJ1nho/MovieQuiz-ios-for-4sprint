@@ -15,7 +15,7 @@ protocol StatisticService {
 }
 
 final class StatisticServiceImplementation: StatisticService {
-
+    
     private let userDefaults = UserDefaults.standard
     
     var totalAccuracy: Double {
@@ -35,11 +35,11 @@ final class StatisticServiceImplementation: StatisticService {
             userDefaults.set(newValue, forKey: Keys.gamesCount.rawValue)
         }
     }
-
+    
     var bestGame: GameRecord {
         get {
             guard let data = userDefaults.data(forKey: Keys.bestGame.rawValue),
-                let record = try? JSONDecoder().decode(GameRecord.self, from: data) else {
+                  let record = try? JSONDecoder().decode(GameRecord.self, from: data) else {
                 return .init(correct: 0, total: 0, date: Date())
             }
             return record
@@ -56,12 +56,16 @@ final class StatisticServiceImplementation: StatisticService {
     func store(correct count: Int, total amount: Int) {
         gamesCount += 1
         let currentAccuracy = Double(count) / Double(amount)
-        if gamesCount == 1 {
-            totalAccuracy = currentAccuracy
-        } else {
-            totalAccuracy = (totalAccuracy + currentAccuracy) / 2
+        var rangeOfAccuracy = userDefaults.array(forKey: Keys.rangeOfAccuracy.rawValue) as? [Double] ?? []
+        var totalPrevAccuracy = 0.0
+        
+        for i in rangeOfAccuracy {
+            totalPrevAccuracy += i
         }
         
+        totalAccuracy = (totalPrevAccuracy + currentAccuracy) / Double(gamesCount)
+        rangeOfAccuracy.append(currentAccuracy)
+        userDefaults.set(rangeOfAccuracy, forKey: Keys.rangeOfAccuracy.rawValue)
         let currentGame = GameRecord(correct: count, total: amount, date: Date())
         if bestGame < currentGame {
             bestGame = currentGame
@@ -69,6 +73,6 @@ final class StatisticServiceImplementation: StatisticService {
     }
     
     private enum Keys: String {
-        case correct, totalAccuracy, bestGame, gamesCount
+        case correct, totalAccuracy, bestGame, gamesCount, rangeOfAccuracy
     }
 }
