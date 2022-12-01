@@ -100,9 +100,6 @@ class QuestionFactory: QuestionFactoryProtocol {
         }
     }
     
-//    init(delegate: QuestionFactoryDelegate?) {
-//        self.delegate = delegate
-//    }
     init(moviesLoader: MoviesLoading,
          delegate: QuestionFactoryDelegate?) {
         self.moviesLoader = moviesLoader
