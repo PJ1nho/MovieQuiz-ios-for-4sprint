@@ -20,7 +20,7 @@ struct MoviesLoader: MoviesLoading {
         }
         return url
     }
-    
+
     func loadMovies(handler: @escaping (Result<MostPopularMovies, Error>) -> Void) {
         networkClient.fetch(url: mostPopularMoviesURL) { result in
             switch result {
