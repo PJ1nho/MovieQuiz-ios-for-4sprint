@@ -16,6 +16,7 @@ class AlertPresenter: AlertProtocol {
             model.completion?()
         })
         alert.addAction(action)
+        alert.view.accessibilityIdentifier = "Game results"
         delegate?.show(alert: alert)
     }
     
