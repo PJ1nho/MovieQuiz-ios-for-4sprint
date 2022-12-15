@@ -2,13 +2,21 @@
 //  PresenterTests.swift
 //  PresenterTests
 //
-//  Created by Тихтей  Павел on 13.12.2022.
+//  Created by Тихтей  Павел on 15.12.2022.
 //
 
 import XCTest
 @testable import MovieQuiz
 
-final class MovieQuizViewControllerProtocolMock: MovieQuizViewControllerProtocol {
+final class MovieQuizViewControllerProtocolMock: UIViewController, MovieQuizViewControllerProtocol {
+    func hideBorder() {
+        
+    }
+    
+    func drawBorder(color: UIColor) {
+        
+    }
+    
     func show(quiz step: QuizStepViewModel) {
     
     }
