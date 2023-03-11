@@ -68,8 +68,14 @@ final class MovieQuizViewController: UIViewController, AlertDelegate, MovieQuizV
     func didReceiveNextQuestion(question: QuizQuestion?) {
         presenter.didReceiveNextQuestion(question: question)
     }
+
     
     func hideActivityIndicator() {
         activityIndicator.isHidden = true 
+
+
+    func didFailToLoadData(with error: String) {
+        showNetworkError(message: error)
+
     }
 }
